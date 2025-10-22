@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - HAPPY INFO TOOL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --neon: #00fff2;
+            --accent: #00ffaa;
+            --warn: #ffb84d;
+            --danger: #ff5566;
+            --bg: #000;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background: radial-gradient(circle at center, #070808 0%, #000 80%);
+            color: var(--neon);
+            min-height: 100vh;
+            padding: 15px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            border-bottom: 1px solid rgba(0, 255, 242, 0.2);
+        }
+        .header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            text-shadow: 0 0 10px var(--neon);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: linear-gradient(180deg, rgba(5,5,6,0.95), rgba(3,3,4,0.95));
+            border: 1px solid rgba(0, 255, 204, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--accent);
+            margin: 8px 0;
+        }
+        .panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .panel {
+            background: linear-gradient(180deg, rgba(5,5,6,0.95), rgba(3,3,4,0.95));
+            border: 1px solid rgba(0, 255, 204, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+        }
+        .panel h2 {
+            margin-bottom: 15px;
+            color: var(--accent);
+            border-bottom: 1px solid rgba(0, 255, 242, 0.2);
+            padding-bottom: 8px;
+            font-size: 1.2rem;
+        }
+        .user-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .user-item {
+            padding: 12px;
+            border: 1px solid rgba(0, 255, 242, 0.1);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            background: rgba(0, 12, 12, 0.3);
+        }
+        .user-info {
+            margin-bottom: 8px;
+        }
+        .user-info div {
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+        }
+        .user-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Share Tech Mono', monospace;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+        .btn-primary {
+            background: linear-gradient(90deg, var(--neon), var(--accent));
+            color: #000;
+        }
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .verification-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .verification-controls input, .verification-controls select {
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid rgba(0, 255, 242, 0.2);
+            background: rgba(0, 12, 12, 0.3);
+            color: var(--neon);
+            font-family: 'Share Tech Mono', monospace;
+        }
+        .logs {
+            background: #000;
+            border: 1px solid rgba(0, 255, 242, 0.1);
+            border-radius: 6px;
+            padding: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 0.75rem;
+        }
+        .log-entry {
+            margin-bottom: 6px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(0, 255, 242, 0.1);
+        }
+        .timestamp {
+            color: var(--warn);
+            font-size: 0.7rem;
+        }
+        .status-badge {
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+        .status-verified {
+            background: rgba(0, 255, 170, 0.2);
+            color: var(--accent);
+        }
+        .status-pending {
+            background: rgba(255, 184, 77, 0.2);
+            color: var(--warn);
+        }
+        .loading-screen {
+            text-align: center;
+            padding: 50px 20px;
+            color: var(--neon);
+        }
+        .status-message {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .success { background: rgba(0, 255, 170, 0.1); color: var(--accent); }
+        .error { background: rgba(255, 85, 102, 0.1); color: var(--danger); }
+        .loading { background: rgba(255, 184, 77, 0.1); color: var(--warn); }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <h2>⚡ Admin Panel Loading...</h2>
+        <p>Checking Firebase connection...</p>
+    </div>
+
+    <!-- Admin Panel -->
+    <div id="adminPanel" style="display: none;">
+        <div class="container">
+            <div class="header">
+                <h1>⚡ HAPPY INFO TOOL - ADMIN PANEL ⚡</h1>
+                <p>User Management & Verification System</p>
+                <div id="connectionStatus" class="status-message loading">
+                    🔄 Connecting to Database...
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Users</h3>
+                    <div class="stat-number" id="totalUsers">0</div>
+                    <p>Registered Users</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Pending Verify</h3>
+                    <div class="stat-number" id="pendingVerification">0</div>
+                    <p>Awaiting Approval</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Verified Users</h3>
+                    <div class="stat-number" id="verifiedUsers">0</div>
+                    <p>Completed</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Active Today</h3>
+                    <div class="stat-number" id="activeToday">0</div>
+                    <p>Last 24 Hours</p>
+                </div>
+            </div>
+
+            <div class="panels">
+                <div class="panel">
+                    <h2>📋 User Management</h2>
+                    <div id="userListStatus" class="status-message loading">
+                        Loading users...
+                    </div>
+                    <div class="user-list" id="userList">
+                        <!-- Users will be populated here -->
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>🔑 Send Verification</h2>
+                    <div class="verification-controls">
+                        <select id="userSelect">
+                            <option value="">Select user to verify</option>
+                        </select>
+                        <input type="text" id="customKeyInput" placeholder="Custom verification key (optional)">
+                        <button class="btn btn-primary" onclick="sendVerificationKey()">Send Verification Key</button>
+                    </div>
+                    <div id="keyStatus" class="status-message" style="display: none;"></div>
+
+                    <h2 style="margin-top: 20px;">📊 Activity Logs</h2>
+                    <div class="logs" id="activityLogs">
+                        <div class="log-entry">
+                            <div class="timestamp">[Loading...]</div>
+                            <div>Loading activity logs...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAtY9J7wIfdIYNrx0ezGR6_Gh4Hebztd4Q",
+            authDomain: "happy-info-tool.firebaseapp.com",
+            databaseURL: "https://happy-info-tool-default-rtdb.firebaseio.com",
+            projectId: "happy-info-tool",
+            storageBucket: "happy-info-tool.firebasestorage.app",
+            messagingSenderId: "242512324403",
+            appId: "1:242512324403:web:948351925673441a088046"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let users = [];
+        let pendingVerifications = [];
+
+        console.log("🚀 Admin Panel Starting...");
+
+        // Check Firebase connection
+        db.ref('.info/connected').on('value', (snap) => {
+            const connectionStatus = document.getElementById('connectionStatus');
+            if (snap.val() === true) {
+                console.log("✅ Firebase Connected Successfully");
+                connectionStatus.className = 'status-message success';
+                connectionStatus.innerHTML = '✅ Connected to Database';
+                
+                // Load data after connection established
+                setTimeout(() => {
+                    document.getElementById('loadingScreen').style.display = 'none';
+                    document.getElementById('adminPanel').style.display = 'block';
+                    initAdminPanel();
+                }, 1000);
+            } else {
+                console.log("❌ Firebase Not Connected");
+                connectionStatus.className = 'status-message error';
+                connectionStatus.innerHTML = '❌ Database Connection Failed';
+            }
+        });
+
+        // Initialize admin panel
+        function initAdminPanel() {
+            console.log("🔄 Initializing Admin Panel...");
+            loadUsers();
+            loadPendingVerifications();
+            setupRealtimeListeners();
+            
+            // Add activity log for admin access
+            db.ref('activityLogs').push({
+                type: 'admin_access',
+                timestamp: new Date().toISOString(),
+                message: 'Admin panel accessed'
+            }).catch(error => {
+                console.log("Activity log error:", error);
+            });
+        }
+
+        // Load users from database
+        async function loadUsers() {
+            const userListStatus = document.getElementById('userListStatus');
+            try {
+                userListStatus.className = 'status-message loading';
+                userListStatus.innerHTML = '🔄 Loading users...';
+                
+                console.log("📥 Fetching users from Firebase...");
+                const snapshot = await db.ref('users').once('value');
+                
+                users = [];
+                snapshot.forEach((childSnapshot) => {
+                    users.push({
+                        id: childSnapshot.key,
+                        ...childSnapshot.val()
+                    });
+                });
+                
+                console.log("✅ Users loaded:", users.length);
+                userListStatus.className = 'status-message success';
+                userListStatus.innerHTML = `✅ Loaded ${users.length} users`;
+                
+                renderUserList();
+                updateStats();
+                populateUserSelect();
+                
+            } catch (error) {
+                console.error('❌ Error loading users:', error);
+                userListStatus.className = 'status-message error';
+                userListStatus.innerHTML = `❌ Error: ${error.message}`;
+            }
+        }
+
+        // Load pending verifications
+        async function loadPendingVerifications() {
+            try {
+                const snapshot = await db.ref('pendingVerifications').once('value');
+                pendingVerifications = [];
+                snapshot.forEach((childSnapshot) => {
+                    pendingVerifications.push({
+                        id: childSnapshot.key,
+                        ...childSnapshot.val()
+                    });
+                });
+                updateStats();
+            } catch (error) {
+                console.error('Error loading pending verifications:', error);
+            }
+        }
+
+        // Setup realtime listeners
+        function setupRealtimeListeners() {
+            // Listen for new users
+            db.ref('users').on('value', (snapshot) => {
+                users = [];
+                snapshot.forEach((childSnapshot) => {
+                    users.push({
+                        id: childSnapshot.key,
+                        ...childSnapshot.val()
+                    });
+                });
+                renderUserList();
+                updateStats();
+                populateUserSelect();
+            });
+
+            // Listen for activity logs
+            db.ref('activityLogs').limitToLast(10).on('value', (snapshot) => {
+                renderActivityLogs(snapshot);
+            });
+        }
+
+        // Render user list
+        function renderUserList() {
+            const userList = document.getElementById('userList');
+            userList.innerHTML = '';
+
+            if (users.length === 0) {
+                userList.innerHTML = `
+                    <div style="text-align: center; color: #666; padding: 20px;">
+                        <div>📭 No users found</div>
+                        <div style="font-size: 0.8rem; margin-top: 10px;">
+                            Users will appear here when they sign up in the main app
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Sort users by creation date (newest first)
+            users.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+            users.forEach((user) => {
+                const userItem = document.createElement('div');
+                userItem.className = 'user-item';
+                
+                const userInfo = `
+                    <div class="user-info">
+                        <div><strong>👤 ${user.name || 'No Name'}</strong></div>
+                        <div>📧 ${user.email || 'No Email'}</div>
+                        ${user.phoneBrand ? `<div>📱 ${user.phoneBrand} ${user.phoneModel || ''}</div>` : ''}
+                        <div>Status: <span class="status-badge ${user.verified ? 'status-verified' : 'status-pending'}">
+                            ${user.verified ? '✅ Verified' : '⏳ Pending'}
+                        </span></div>
+                        <div>🕒 ${user.createdAt ? new Date(user.createdAt).toLocaleString() : 'Unknown date'}</div>
+                    </div>
+                `;
+
+                const userActions = `
+                    <div class="user-actions">
+                        ${!user.verified ? `
+                            <button class="btn btn-primary" onclick="sendVerificationToUser('${user.id}', '${user.email}', '${user.name}')">
+                                Send Key
+                            </button>
+                        ` : ''}
+                        <button class="btn btn-danger" onclick="deleteUser('${user.id}')">
+                            Delete
+                        </button>
+                    </div>
+                `;
+
+                userItem.innerHTML = userInfo + userActions;
+                userList.appendChild(userItem);
+            });
+        }
+
+        // Populate user select dropdown
+        function populateUserSelect() {
+            const userSelect = document.getElementById('userSelect');
+            userSelect.innerHTML = '<option value="">Select user to verify</option>';
+            
+            const unverifiedUsers = users.filter(user => !user.verified);
+            
+            if (unverifiedUsers.length === 0) {
+                userSelect.innerHTML = '<option value="">No users pending verification</option>';
+                return;
+            }
+            
+            unverifiedUsers.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${user.name} (${user.email})`;
+                userSelect.appendChild(option);
+            });
+        }
+
+        // Update statistics
+        function updateStats() {
+            const totalUsers = users.length;
+            const pendingVerification = users.filter(user => !user.verified).length;
+            const verifiedUsers = users.filter(user => user.verified).length;
+            
+            // Calculate active users (last 24 hours)
+            const activeToday = users.filter(user => {
+                if (!user.lastSeen) return false;
+                const lastSeen = new Date(user.lastSeen);
+                const now = new Date();
+                return (now - lastSeen) < (24 * 60 * 60 * 1000);
+            }).length;
+
+            document.getElementById('totalUsers').textContent = totalUsers;
+            document.getElementById('pendingVerification').textContent = pendingVerification;
+            document.getElementById('verifiedUsers').textContent = verifiedUsers;
+            document.getElementById('activeToday').textContent = activeToday;
+        }
+
+        // Send verification key
+        async function sendVerificationKey() {
+            const userId = document.getElementById('userSelect').value;
+            const customKey = document.getElementById('customKeyInput').value.trim();
+            const statusElement = document.getElementById('keyStatus');
+
+            if (!userId) {
+                showStatus('❌ Please select a user', 'error');
+                return;
+            }
+
+            const user = users.find(u => u.id === userId);
+            if (!user) {
+                showStatus('❌ User not found', 'error');
+                return;
+            }
+
+            try {
+                showStatus('🔄 Generating and sending verification key...', 'loading');
+
+                // Generate verification key
+                const verificationKey = customKey || Math.floor(100000 + Math.random() * 900000).toString();
+                
+                // Set expiration (24 hours from now)
+                const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+                // Store verification key in database
+                await db.ref('verificationKeys').push({
+                    userId: userId,
+                    key: verificationKey,
+                    email: user.email,
+                    createdAt: new Date().toISOString(),
+                    expiresAt: expiresAt,
+                    used: false
+                });
+
+                // Remove from pending verifications
+                const pendingRef = db.ref('pendingVerifications');
+                const pendingSnapshot = await pendingRef.orderByChild('userId').equalTo(userId).once('value');
+                pendingSnapshot.forEach((childSnapshot) => {
+                    childSnapshot.ref.remove();
+                });
+
+                // Add activity log
+                await db.ref('activityLogs').push({
+                    type: 'verification_sent',
+                    userId: userId,
+                    email: user.email,
+                    timestamp: new Date().toISOString(),
+                    message: `Verification key sent to ${user.email}: ${verificationKey}`
+                });
+
+                showStatus(`✅ Verification key sent to ${user.email}: ${verificationKey}`, 'success');
+
+                // Clear inputs
+                document.getElementById('userSelect').value = '';
+                document.getElementById('customKeyInput').value = '';
+
+            } catch (error) {
+                console.error('Error sending verification key:', error);
+                showStatus('❌ ' + error.message, 'error');
+            }
+        }
+
+        // Send verification to specific user
+        async function sendVerificationToUser(userId, email, name) {
+            try {
+                // Generate verification key
+                const verificationKey = Math.floor(100000 + Math.random() * 900000).toString();
+                
+                // Set expiration (24 hours from now)
+                const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+                // Store verification key in database
+                await db.ref('verificationKeys').push({
+                    userId: userId,
+                    key: verificationKey,
+                    email: email,
+                    createdAt: new Date().toISOString(),
+                    expiresAt: expiresAt,
+                    used: false
+                });
+
+                // Remove from pending verifications
+                const pendingRef = db.ref('pendingVerifications');
+                const pendingSnapshot = await pendingRef.orderByChild('userId').equalTo(userId).once('value');
+                pendingSnapshot.forEach((childSnapshot) => {
+                    childSnapshot.ref.remove();
+                });
+
+                // Add activity log
+                await db.ref('activityLogs').push({
+                    type: 'verification_sent',
+                    userId: userId,
+                    email: email,
+                    timestamp: new Date().toISOString(),
+                    message: `Verification key sent to ${email}: ${verificationKey}`
+                });
+
+                showStatus(`✅ Verification key sent to ${email}: ${verificationKey}`, 'success');
+                
+            } catch (error) {
+                console.error('Error sending verification key:', error);
+                showStatus('❌ ' + error.message, 'error');
+            }
+        }
+
+        // Delete user
+        async function deleteUser(userId) {
+            if (!confirm('Are you sure you want to delete this user?')) {
+                return;
+            }
+
+            try {
+                await db.ref('users/' + userId).remove();
+                
+                // Add activity log
+                await db.ref('activityLogs').push({
+                    type: 'user_deleted',
+                    userId: userId,
+                    timestamp: new Date().toISOString(),
+                    message: `User ${userId} deleted by admin`
+                });
+
+                showStatus('✅ User deleted successfully', 'success');
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                showStatus('❌ ' + error.message, 'error');
+            }
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            const statusElement = document.getElementById('keyStatus');
+            statusElement.textContent = message;
+            statusElement.style.display = 'block';
+            statusElement.className = 'status-message ' + type;
+        }
+
+        // Render activity logs
+        function renderActivityLogs(snapshot) {
+            const logsContainer = document.getElementById('activityLogs');
+            logsContainer.innerHTML = '';
+
+            if (!snapshot.exists()) {
+                logsContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 10px;">No activity logs found</div>';
+                return;
+            }
+
+            const logs = [];
+            snapshot.forEach((childSnapshot) => {
+                logs.push({
+                    id: childSnapshot.key,
+                    ...childSnapshot.val()
+                });
+            });
+
+            // Show latest logs first
+            logs.reverse().forEach(log => {
+                const logEntry = document.createElement('div');
+                logEntry.className = 'log-entry';
+                logEntry.innerHTML = `
+                    <div class="timestamp">[${new Date(log.timestamp).toLocaleString()}]</div>
+                    <div>${log.message}</div>
+                `;
+                logsContainer.appendChild(logEntry);
+            });
+        }
+
+        // Handle page errors
+        window.addEventListener('error', function(e) {
+            console.error('Global error:', e.error);
+            const statusElement = document.getElementById('connectionStatus');
+            statusElement.className = 'status-message error';
+            statusElement.innerHTML = '❌ Script Error: Check console';
+        });
+    </script>
+</body>
+</html>
