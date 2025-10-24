@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - HAPPY INFO TOOL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+    <script src="https://smtpjs.com/v3/smtp.js"></script>
+</head>
+<body>
+    <div id="loadingScreen" class="loading-screen">
+        <h2>⚡ Admin Panel Loading...</h2>
+        <p>Setting up automatic systems...</p>
+    </div>
+
+    <div id="adminPanel" style="display: none;">
+        <div class="container">
+            <div class="header">
+                <h1>⚡ HAPPY INFO TOOL - ADMIN PANEL ⚡</h1>
+                <p>🤖 Automatic Verification | 💰 Credit System | 🎯 Referral System</p>
+                <div id="connectionStatus" class="status-message loading">
+                    🔄 Connecting to Database...
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Users</h3>
+                    <div class="stat-number" id="totalUsers">0</div>
+                    <p>Registered Users</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Pending Verify</h3>
+                    <div class="stat-number" id="pendingVerification">0</div>
+                    <p>Awaiting Approval</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Verified Users</h3>
+                    <div class="stat-number" id="verifiedUsers">0</div>
+                    <p>Completed</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Auto Emails</h3>
+                    <div class="stat-number" id="autoEmailsSent">0</div>
+                    <p>Auto Sent</p>
+                </div>
+            </div>
+
+            <div class="panels">
+                <div class="panel">
+                    <h2>📋 User Management (Auto-Verify)</h2>
+                    <div class="auto-system-info">
+                        <div class="status-message success">
+                            🤖 <strong>AUTOMATIC VERIFICATION ACTIVE</strong><br>
+                            ✅ New users get code in 30 seconds<br>
+                            📧 From: numberdetails69@gmail.com<br>
+                            ⚡ No manual action needed
+                        </div>
+                    </div>
+                    
+                    <div id="userListStatus" class="status-message loading">
+                        Loading users...
+                    </div>
+                    <div class="user-list" id="userList">
+                        <!-- Users will be populated here -->
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>🔑 Automatic Verification System</h2>
+                    <div class="verification-controls">
+                        <div class="system-status">
+                            <div class="status-message success">
+                                <strong>🤖 AUTO SYSTEM RUNNING</strong><br>
+                                📧 Gmail: numberdetails69@gmail.com<br>
+                                ⏰ Delay: 30 seconds<br>
+                                🎯 New users auto-verified
+                            </div>
+                        </div>
+                        <button class="btn btn-warning" onclick="sendToAllPending()">
+                            📨 Send to All Pending Users
+                        </button>
+                        <button class="btn btn-primary" onclick="testEmailSystem()">
+                            🧪 Test Email System
+                        </button>
+                    </div>
+
+                    <h2 style="margin-top: 20px;">💰 Credit Management</h2>
+                    <div class="verification-controls">
+                        <select id="creditUserSelect">
+                            <option value="">Select user to add credits</option>
+                        </select>
+                        <div class="credit-controls">
+                            <input type="number" id="creditAmount" class="credit-input" placeholder="Credit amount" min="1" max="1000">
+                            <button class="btn btn-success" onclick="addCreditsToUser()">Add Credits</button>
+                        </div>
+                    </div>
+                    <div id="creditStatus" class="status-message" style="display: none;"></div>
+
+                    <h2 style="margin-top: 20px;">📊 System Activity Logs</h2>
+                    <div class="logs" id="activityLogs">
+                        <div class="log-entry">
+                            <div class="timestamp">[Loading...]</div>
+                            <div>Loading activity logs...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAtY9J7wIfdIYNrx0ezGR6_Gh4Hebztd4Q",
+            authDomain: "happy-info-tool.firebaseapp.com",
+            databaseURL: "https://happy-info-tool-default-rtdb.firebaseio.com",
+            projectId: "happy-info-tool",
+            storageBucket: "happy-info-tool.firebasestorage.app",
+            messagingSenderId: "242512324403",
+            appId: "1:242512324403:web:948351925673441a088046"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Your Gmail Configuration
+        const GMAIL_CONFIG = {
+            email: "numberdetails69@gmail.com",
+            password: "tosn tnyd dxpv qhgr",
+            senderName: "Happy Info Tool"
+        };
+
+        let users = [];
+        let autoSystemActive = true;
+
+        console.log("🚀 Admin Panel Starting...");
+
+        // Check Firebase connection
+        db.ref('.info/connected').on('value', (snap) => {
+            const connectionStatus = document.getElementById('connectionStatus');
+            if (snap.val() === true) {
+                console.log("✅ Firebase Connected Successfully");
+                connectionStatus.className = 'status-message success';
+                connectionStatus.innerHTML = '✅ Connected to Database | 🤖 Auto System ACTIVE';
+                
+                setTimeout(() => {
+                    document.getElementById('loadingScreen').style.display = 'none';
+                    document.getElementById('adminPanel').style.display = 'block';
+                    initAdminPanel();
+                }, 1000);
+            } else {
+                console.log("❌ Firebase Not Connected");
+                connectionStatus.className = 'status-message error';
+                connectionStatus.innerHTML = '❌ Database Connection Failed';
+            }
+        });
+
+        // Initialize admin panel
+        function initAdminPanel() {
+            console.log("🔄 Initializing Admin Panel...");
+            loadUsers();
+            setupRealtimeListeners();
+            
+            // Add system start log
+            logActivity('system_start', 'Auto verification system started');
+        }
+
+        // Load users from database
+        async function loadUsers() {
+            const userListStatus = document.getElementById('userListStatus');
+            try {
+                userListStatus.className = 'status-message loading';
+                userListStatus.innerHTML = '🔄 Loading users...';
+                
+                console.log("📥 Fetching users from Firebase...");
+                const snapshot = await db.ref('users').once('value');
+                
+                users = [];
+                snapshot.forEach((childSnapshot) => {
+                    const user = {
+                        id: childSnapshot.key,
+                        ...childSnapshot.val()
+                    };
+                    users.push(user);
+                    
+                    // Auto-send verification to new unverified users
+                    if (!user.verified && !user.verificationSent) {
+                        console.log(`🔄 Scheduling auto verification for: ${user.email}`);
+                        setTimeout(() => {
+                            sendAutoVerification(user);
+                        }, 30000); // 30 seconds delay
+                    }
+                });
+                
+                console.log("✅ Users loaded:", users.length);
+                userListStatus.className = 'status-message success';
+                userListStatus.innerHTML = `✅ Loaded ${users.length} users`;
+                
+                renderUserList();
+                updateStats();
+                populateCreditUserSelect();
+                
+            } catch (error) {
+                console.error('❌ Error loading users:', error);
+                userListStatus.className = 'status-message error';
+                userListStatus.innerHTML = `❌ Error: ${error.message}`;
+            }
+        }
+
+        // Setup realtime listeners for new users
+        function setupRealtimeListeners() {
+            // Listen for new users - AUTO VERIFICATION TRIGGER
+            db.ref('users').on('child_added', (snapshot) => {
+                const newUser = {
+                    id: snapshot.key,
+                    ...snapshot.val()
+                };
+                
+                console.log(`🆕 New user detected: ${newUser.email}`);
+                users.push(newUser);
+                renderUserList();
+                updateStats();
+                populateCreditUserSelect();
+                
+                // AUTO VERIFICATION - Send code after 30 seconds
+                if (!newUser.verified && autoSystemActive && !newUser.verificationSent) {
+                    console.log(`🔄 Auto verification scheduled for: ${newUser.email}`);
+                    
+                    setTimeout(() => {
+                        sendAutoVerification(newUser);
+                    }, 30000); // 30 seconds
+                }
+            });
+
+            // Listen for user updates
+            db.ref('users').on('child_changed', (snapshot) => {
+                const updatedUser = {
+                    id: snapshot.key,
+                    ...snapshot.val()
+                };
+                
+                const index = users.findIndex(u => u.id === updatedUser.id);
+                if (index !== -1) {
+                    users[index] = updatedUser;
+                }
+                
+                renderUserList();
+                updateStats();
+            });
+
+            // Listen for activity logs
+            db.ref('activityLogs').limitToLast(20).on('value', (snapshot) => {
+                renderActivityLogs(snapshot);
+            });
+        }
+
+        // AUTOMATIC VERIFICATION FUNCTION - FIXED
+        async function sendAutoVerification(user) {
+            if (!user || user.verified) {
+                console.log(`⏩ Skipping verification - user already verified: ${user.email}`);
+                return;
+            }
+            
+            try {
+                console.log(`📧 Starting auto verification for: ${user.email}`);
+                
+                // Generate verification code
+                const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+                const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+                // Save verification data
+                await db.ref('emailVerifications').push({
+                    userId: user.id,
+                    email: user.email,
+                    code: verificationCode,
+                    type: 'auto',
+                    createdAt: new Date().toISOString(),
+                    expiresAt: expiresAt,
+                    used: false
+                });
+
+                console.log(`✅ Verification code saved for: ${user.email}`);
+
+                // Mark that verification has been sent
+                await db.ref('users/' + user.id).update({
+                    verificationSent: true,
+                    verificationSentAt: new Date().toISOString()
+                });
+
+                console.log(`✅ User marked as verification sent: ${user.email}`);
+
+                // Send email
+                const emailSubject = 'Your Verification Code - Happy Info Tool';
+                const emailHtml = createVerificationEmail(user.name, verificationCode);
+                
+                console.log(`📤 Sending email to: ${user.email}`);
+                await sendEmail(user.email, emailSubject, emailHtml);
+                
+                // Update stats
+                await updateEmailStats('sent');
+                
+                // Log activity
+                await logActivity('auto_verification_sent', 
+                    `✅ Auto verification sent to ${user.email}. Code: ${verificationCode}`);
+
+                console.log(`🎉 Auto verification COMPLETED for: ${user.email}`);
+
+            } catch (error) {
+                console.error('❌ Auto verification failed:', error);
+                await updateEmailStats('failed');
+                await logActivity('auto_verification_failed', 
+                    `❌ Failed to send auto verification to ${user.email}: ${error.message}`);
+            }
+        }
+
+        // Create verification email template
+        function createVerificationEmail(userName, verificationCode) {
+            return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body { 
+                        font-family: Arial, sans-serif; 
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        margin: 0;
+                        padding: 20px;
+                    }
+                    .container { 
+                        max-width: 600px; 
+                        background: white; 
+                        margin: 0 auto; 
+                        border-radius: 15px;
+                        overflow: hidden;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                    }
+                    .header { 
+                        background: linear-gradient(90deg, #00fff2, #00ffaa);
+                        color: white; 
+                        padding: 30px; 
+                        text-align: center; 
+                    }
+                    .content { 
+                        padding: 40px 30px; 
+                    }
+                    .verification-code { 
+                        background: linear-gradient(135deg, #00fff2, #00ffaa);
+                        color: white;
+                        font-size: 42px; 
+                        font-weight: bold; 
+                        text-align: center; 
+                        margin: 30px 0; 
+                        padding: 20px;
+                        border-radius: 10px;
+                        letter-spacing: 8px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>🚀 Happy Info Tool</h1>
+                        <p>Email Verification</p>
+                    </div>
+                    
+                    <div class="content">
+                        <h2>Hello ${userName || 'there'}! 👋</h2>
+                        
+                        <p>Welcome to <strong>Happy Info Tool</strong>! We're excited to have you on board.</p>
+                        
+                        <p>To complete your registration and access all features, please verify your email address using the code below:</p>
+                        
+                        <div class="verification-code">
+                            ${verificationCode}
+                        </div>
+                        
+                        <p><strong>📝 How to Verify:</strong></p>
+                        <ol>
+                            <li>Open the Happy Info Tool app</li>
+                            <li>Go to your profile</li>
+                            <li>Enter the 6-digit code above</li>
+                            <li>Click Verify Email</li>
+                        </ol>
+                        
+                        <p><strong>⏰ Important:</strong> This verification code will expire in <strong>24 hours</strong>.</p>
+                        
+                        <p>If you have any questions, feel free to reply to this email.</p>
+                        
+                        <p>Best regards,<br>
+                        <strong>The Happy Info Tool Team</strong> 🎉</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            `;
+        }
+
+        // Send email function - FIXED
+        async function sendEmail(toEmail, subject, htmlContent) {
+            return new Promise((resolve, reject) => {
+                console.log(`📧 Attempting to send email to: ${toEmail}`);
+                
+                Email.send({
+                    Host: "smtp.gmail.com",
+                    Username: GMAIL_CONFIG.email,
+                    Password: GMAIL_CONFIG.password,
+                    To: toEmail,
+                    From: GMAIL_CONFIG.email,
+                    Subject: subject,
+                    Body: htmlContent,
+                }).then(message => {
+                    console.log(`📧 Email send response: ${message}`);
+                    if (message === "OK") {
+                        resolve(true);
+                    } else {
+                        reject(new Error(message));
+                    }
+                }).catch(error => {
+                    console.error('📧 Email send error:', error);
+                    reject(error);
+                });
+            });
+        }
+
+        // Send to all pending users
+        async function sendToAllPending() {
+            const pendingUsers = users.filter(user => !user.verified && !user.verificationSent);
+            
+            if (pendingUsers.length === 0) {
+                alert('✅ All users are already verified or have verification sent!');
+                return;
+            }
+
+            console.log(`📨 Sending verification to ${pendingUsers.length} pending users`);
+            
+            let successCount = 0;
+            for (const user of pendingUsers) {
+                try {
+                    await sendAutoVerification(user);
+                    successCount++;
+                    // Add delay to avoid rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                } catch (error) {
+                    console.error(`Failed to send to ${user.email}:`, error);
+                }
+            }
+            
+            alert(`✅ Verification sent to ${successCount} users`);
+        }
+
+        // Test email system
+        async function testEmailSystem() {
+            const testEmail = prompt('Enter test email address:');
+            if (!testEmail) return;
+            
+            try {
+                const testCode = '123456';
+                const testHtml = createVerificationEmail('Test User', testCode);
+                
+                await sendEmail(testEmail, 'TEST - Happy Info Tool Verification', testHtml);
+                alert('✅ Test email sent successfully! Check your inbox.');
+                
+                await logActivity('system_test', `Test email sent to ${testEmail}`);
+            } catch (error) {
+                alert('❌ Test failed: ' + error.message);
+            }
+        }
+
+        // Log activity
+        async function logActivity(type, message) {
+            const logEntry = {
+                type: type,
+                message: message,
+                timestamp: new Date().toISOString(),
+                autoSystem: autoSystemActive
+            };
+            
+            await db.ref('activityLogs').push(logEntry);
+        }
+
+        // Update email stats
+        async function updateEmailStats(status) {
+            try {
+                const statsRef = db.ref('emailStats');
+                const snapshot = await statsRef.once('value');
+                let stats = snapshot.exists() ? snapshot.val() : { sent: 0, failed: 0 };
+                
+                if (status === 'sent') {
+                    stats.sent = (stats.sent || 0) + 1;
+                } else if (status === 'failed') {
+                    stats.failed = (stats.failed || 0) + 1;
+                }
+                
+                await statsRef.set(stats);
+                updateStats();
+            } catch (error) {
+                console.error('Error updating email stats:', error);
+            }
+        }
+
+        // Render activity logs
+        function renderActivityLogs(snapshot) {
+            const logsContainer = document.getElementById('activityLogs');
+            logsContainer.innerHTML = '';
+
+            if (!snapshot.exists()) {
+                logsContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 10px;">No activity yet</div>';
+                return;
+            }
+
+            const logs = [];
+            snapshot.forEach((childSnapshot) => {
+                logs.push({
+                    id: childSnapshot.key,
+                    ...childSnapshot.val()
+                });
+            });
+
+            logs.reverse().forEach(log => {
+                const logEntry = document.createElement('div');
+                logEntry.className = 'log-entry';
+                
+                const icon = log.type.includes('failed') ? '❌' : 
+                            log.type.includes('sent') ? '✅' : '🔔';
+                
+                logEntry.innerHTML = `
+                    <div class="timestamp">[${new Date(log.timestamp).toLocaleTimeString()}]</div>
+                    <div>${icon} ${log.message}</div>
+                `;
+                logsContainer.appendChild(logEntry);
+            });
+        }
+
+        // Render user list
+        function renderUserList() {
+            const userList = document.getElementById('userList');
+            userList.innerHTML = '';
+
+            if (users.length === 0) {
+                userList.innerHTML = `
+                    <div style="text-align: center; color: #666; padding: 20px;">
+                        <div>📭 No users found</div>
+                        <div style="font-size: 0.8rem; margin-top: 10px;">
+                            Users will appear here when they sign up in the main app
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            users.forEach(user => {
+                const userItem = document.createElement('div');
+                userItem.className = 'user-item';
+                
+                const verificationStatus = user.verified ? 
+                    '✅ Verified' : 
+                    user.verificationSent ? '📧 Code Sent' : '⏳ Waiting Auto-Send';
+
+                const statusColor = user.verified ? '#00ffaa' : 
+                                 user.verificationSent ? '#ffb84d' : '#ff5566';
+
+                userItem.innerHTML = `
+                    <div class="user-info">
+                        <div><strong>👤 ${user.name || 'No Name'}</strong></div>
+                        <div>📧 ${user.email || 'No Email'}</div>
+                        <div style="color: ${statusColor}">${verificationStatus}</div>
+                        <div>🆔 ${user.id.substring(0, 8)}...</div>
+                        <div>🕒 ${new Date(user.createdAt).toLocaleString()}</div>
+                        ${user.verificationSentAt ? 
+                            `<div>📨 Sent: ${new Date(user.verificationSentAt).toLocaleString()}</div>` : 
+                            '<div>⏰ Auto-send in 30s</div>'}
+                    </div>
+                `;
+                
+                userList.appendChild(userItem);
+            });
+        }
+
+        function populateCreditUserSelect() {
+            const creditUserSelect = document.getElementById('creditUserSelect');
+            creditUserSelect.innerHTML = '<option value="">Select user to add credits</option>';
+            
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${user.name} (${user.email})`;
+                creditUserSelect.appendChild(option);
+            });
+        }
+
+        function updateStats() {
+            const totalUsers = users.length;
+            const pendingVerification = users.filter(user => !user.verified).length;
+            const verifiedUsers = users.filter(user => user.verified).length;
+
+            document.getElementById('totalUsers').textContent = totalUsers;
+            document.getElementById('pendingVerification').textContent = pendingVerification;
+            document.getElementById('verifiedUsers').textContent = verifiedUsers;
+        }
+
+        // Credit management functions
+        async function addCreditsToUser() {
+            const userId = document.getElementById('creditUserSelect').value;
+            const creditAmount = parseInt(document.getElementById('creditAmount').value);
+            const statusElement = document.getElementById('creditStatus');
+
+            if (!userId) {
+                showStatus('❌ Please select a user', 'error', statusElement);
+                return;
+            }
+
+            if (!creditAmount || creditAmount < 1) {
+                showStatus('❌ Please enter a valid credit amount', 'error', statusElement);
+                return;
+            }
+
+            const user = users.find(u => u.id === userId);
+            if (!user) {
+                showStatus('❌ User not found', 'error', statusElement);
+                return;
+            }
+
+            try {
+                showStatus('🔄 Adding credits...', 'loading', statusElement);
+
+                const creditRef = db.ref('userCredits/' + userId);
+                const creditSnapshot = await creditRef.once('value');
+                const currentCredits = creditSnapshot.exists() ? (creditSnapshot.val().credits || 0) : 0;
+                
+                const newCredits = currentCredits + creditAmount;
+
+                await creditRef.set({
+                    credits: newCredits,
+                    lastUpdated: new Date().toISOString()
+                });
+
+                await logActivity('credits_added', 
+                    `Admin added ${creditAmount} credits to ${user.email}. Total: ${newCredits}`);
+
+                showStatus(`✅ Added ${creditAmount} credits to ${user.email}. Total: ${newCredits}`, 'success', statusElement);
+
+                document.getElementById('creditUserSelect').value = '';
+                document.getElementById('creditAmount').value = '';
+
+            } catch (error) {
+                console.error('Error adding credits:', error);
+                showStatus('❌ ' + error.message, 'error', statusElement);
+            }
+        }
+
+        function showStatus(message, type, statusElement) {
+            statusElement.textContent = message;
+            statusElement.style.display = 'block';
+            statusElement.className = 'status-message ' + type;
+        }
+
+    </script>
+
+    <style>
+        :root {
+            --neon: #00fff2;
+            --accent: #00ffaa;
+            --warn: #ffb84d;
+            --danger: #ff5566;
+            --bg: #000;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background: radial-gradient(circle at center, #070808 0%, #000 80%);
+            color: var(--neon);
+            min-height: 100vh;
+            padding: 15px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            border-bottom: 1px solid rgba(0, 255, 242, 0.2);
+        }
+        .header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            text-shadow: 0 0 10px var(--neon);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: linear-gradient(180deg, rgba(5,5,6,0.95), rgba(3,3,4,0.95));
+            border: 1px solid rgba(0, 255, 204, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--accent);
+            margin: 8px 0;
+        }
+        .panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .panel {
+            background: linear-gradient(180deg, rgba(5,5,6,0.95), rgba(3,3,4,0.95));
+            border: 1px solid rgba(0, 255, 204, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+        }
+        .panel h2 {
+            margin-bottom: 15px;
+            color: var(--accent);
+            border-bottom: 1px solid rgba(0, 255, 242, 0.2);
+            padding-bottom: 8px;
+            font-size: 1.2rem;
+        }
+        .user-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .user-item {
+            padding: 12px;
+            border: 1px solid rgba(0, 255, 242, 0.1);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            background: rgba(0, 12, 12, 0.3);
+        }
+        .user-info {
+            margin-bottom: 8px;
+        }
+        .user-info div {
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Share Tech Mono', monospace;
+            font-weight: bold;
+            margin: 5px;
+        }
+        .btn-primary {
+            background: linear-gradient(90deg, var(--neon), var(--accent));
+            color: #000;
+        }
+        .btn-success {
+            background: linear-gradient(90deg, var(--accent), #00ff88);
+            color: #000;
+        }
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-warning {
+            background: var(--warn);
+            color: #000;
+        }
+        .verification-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .verification-controls input, .verification-controls select {
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid rgba(0, 255, 242, 0.2);
+            background: rgba(0, 12, 12, 0.3);
+            color: var(--neon);
+            font-family: 'Share Tech Mono', monospace;
+        }
+        .credit-controls {
+            display: flex;
+            gap: 8px;
+        }
+        .credit-input {
+            flex: 1;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid rgba(0, 255, 242, 0.2);
+            background: rgba(0, 12, 12, 0.3);
+            color: var(--neon);
+            font-family: 'Share Tech Mono', monospace;
+        }
+        .loading-screen {
+            text-align: center;
+            padding: 50px 20px;
+            color: var(--neon);
+        }
+        .status-message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .success { background: rgba(0, 255, 170, 0.1); color: var(--accent); }
+        .error { background: rgba(255, 85, 102, 0.1); color: var(--danger); }
+        .loading { background: rgba(255, 184, 77, 0.1); color: var(--warn); }
+        .logs {
+            background: #000;
+            border: 1px solid rgba(0, 255, 242, 0.1);
+            border-radius: 6px;
+            padding: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 0.75rem;
+        }
+        .log-entry {
+            margin-bottom: 6px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(0, 255, 242, 0.1);
+        }
+        .timestamp {
+            color: var(--warn);
+            font-size: 0.7rem;
+        }
+        .auto-system-info {
+            margin: 10px 0;
+        }
+        .system-status {
+            margin: 10px 0;
+        }
+    </style>
+</body>
+</html>
