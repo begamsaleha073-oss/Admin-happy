@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - HAPPY INFO TOOL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+    <script src="https://smtpjs.com/v3/smtp.js"></script>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <h2>⚡ Admin Panel Loading...</h2>
+        <p>Setting up automatic systems...</p>
+    </div>
+
+    <!-- Admin Panel -->
+    <div id="adminPanel" style="display: none;">
+        <div class="container">
+            <div class="header">
+                <h1>⚡ HAPPY INFO TOOL - ADMIN PANEL ⚡</h1>
+                <p>🤖 Automatic Verification | 💰 Credit System | 🎯 Referral System</p>
+                <div id="connectionStatus" class="status-message success">
+                    ✅ Connected | 🤖 Auto Systems ACTIVE
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Users</h3>
+                    <div class="stat-number" id="totalUsers">0</div>
+                    <p>Registered Users</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Pending Verify</h3>
+                    <div class="stat-number" id="pendingVerification">0</div>
+                    <p>Awaiting Approval</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Verified Users</h3>
+                    <div class="stat-number" id="verifiedUsers">0</div>
+                    <p>Completed</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Auto Emails</h3>
+                    <div class="stat-number" id="autoEmailsSent">0</div>
+                    <p>Auto Sent</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Active Referrals</h3>
+                    <div class="stat-number" id="activeReferrals">0</div>
+                    <p>1 Year Valid</p>
+                </div>
+            </div>
+
+            <div class="panels">
+                <!-- Left Panel - User Management -->
+                <div class="panel">
+                    <h2>📋 User Management (Auto-Verify)</h2>
+                    <div class="auto-system-info">
+                        <div class="status-message success">
+                            🤖 <strong>AUTOMATIC VERIFICATION ACTIVE</strong><br>
+                            ✅ New users get code in 30 seconds<br>
+                            📧 From: numberdetails69@gmail.com<br>
+                            ⚡ No manual action needed
+                        </div>
+                    </div>
+                    
+                    <div id="userListStatus" class="status-message loading">
+                        Loading users...
+                    </div>
+                    <div class="user-list" id="userList">
+                        <!-- Users will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Right Panel - All Systems -->
+                <div class="panel">
+                    <!-- Automatic Verification Section -->
+                    <h2>🔑 Automatic Verification System</h2>
+                    <div class="verification-controls">
+                        <div class="system-status">
+                            <div class="status-message success">
+                                <strong>🤖 AUTO SYSTEM RUNNING</strong><br>
+                                📧 Gmail: numberdetails69@gmail.com<br>
+                                ⏰ Delay: 30 seconds<br>
+                                🎯 New users auto-verified
+                            </div>
+                        </div>
+                        <button class="btn btn-warning" onclick="sendToAllPending()">
+                            📨 Send to All Pending Users
+                        </button>
+                    </div>
+
+                    <!-- Credit Management (Your Existing System) -->
+                    <h2 style="margin-top: 20px;">💰 Credit Management</h2>
+                    <div class="verification-controls">
+                        <select id="creditUserSelect">
+                            <option value="">Select user to add credits</option>
+                        </select>
+                        <div class="credit-controls">
+                            <input type="number" id="creditAmount" class="credit-input" placeholder="Credit amount" min="1" max="1000">
+                            <button class="btn btn-success" onclick="addCreditsToUser()">Add Credits</button>
+                        </div>
+                    </div>
+                    <div id="creditStatus" class="status-message" style="display: none;"></div>
+
+                    <!-- Improved Referral System -->
+                    <h2 style="margin-top: 20px;">🎯 Referral System (1 Year Valid)</h2>
+                    <div class="referral-section">
+                        <div class="referral-stats">
+                            <div class="referral-stat">
+                                <div style="font-size: 1.2rem; font-weight: bold; color: var(--accent);" id="totalReferralCodes">0</div>
+                                <div>Total Codes</div>
+                            </div>
+                            <div class="referral-stat">
+                                <div style="font-size: 1.2rem; font-weight: bold; color: var(--accent);" id="activeReferralCodes">0</div>
+                                <div>Active Codes</div>
+                            </div>
+                            <div class="referral-stat">
+                                <div style="font-size: 1.2rem; font-weight: bold; color: var(--accent);" id="usedReferralCodes">0</div>
+                                <div>Used Codes</div>
+                            </div>
+                            <div class="referral-stat">
+                                <div style="font-size: 1.2rem; font-weight: bold; color: var(--accent);" id="referralSuccess">0</div>
+                                <div>Successful</div>
+                            </div>
+                        </div>
+
+                        <div class="referral-controls">
+                            <select id="referralUserSelect">
+                                <option value="">Select user for referral code</option>
+                            </select>
+                            <input type="number" id="referralCodeCount" placeholder="Code count" min="1" max="5" value="1">
+                            <button class="btn btn-primary" onclick="generateReferralCodes()">
+                                Generate 1-Year Codes
+                            </button>
+                        </div>
+
+                        <h4 style="margin: 15px 0 10px 0;">Active Referral Codes (1 Year Valid)</h4>
+                        <div class="referral-codes-list" id="referralCodesList">
+                            <div class="status-message loading">Loading referral codes...</div>
+                        </div>
+                    </div>
+
+                    <!-- Pending Recharge Requests -->
+                    <h2 style="margin-top: 20px;">💳 Pending Recharge Requests</h2>
+                    <div class="recharge-requests" id="rechargeRequests">
+                        <div class="status-message loading">Loading recharge requests...</div>
+                    </div>
+
+                    <!-- Activity Logs -->
+                    <h2 style="margin-top: 20px;">📊 System Activity Logs</h2>
+                    <div class="logs" id="activityLogs">
+                        <div class="log-entry">
+                            <div class="timestamp">[Loading...]</div>
+                            <div>Loading activity logs...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAtY9J7wIfdIYNrx0ezGR6_Gh4Hebztd4Q",
+            authDomain: "happy-info-tool.firebaseapp.com",
+            databaseURL: "https://happy-info-tool-default-rtdb.firebaseio.com",
+            projectId: "happy-info-tool",
+            storageBucket: "happy-info-tool.firebasestorage.app",
+            messagingSenderId: "242512324403",
+            appId: "1:242512324403:web:948351925673441a088046"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Your Gmail Configuration
+        const GMAIL_CONFIG = {
+            email: "numberdetails69@gmail.com",
+            password: "tosn tnyd dxpv qhgr", // Your app password
+            senderName: "Happy Info Tool"
+        };
+
+        let users = [];
+        let rechargeRequests = [];
+        let referralCodes = [];
+        let autoSystemActive = true;
+
+        console.log("🚀 Admin Panel Starting...");
+
+        // Initialize admin panel
+        function initAdminPanel() {
+            console.log("🔄 Initializing Admin Panel...");
+            loadUsers();
+            loadRechargeRequests();
+            loadReferralCodes();
+            setupRealtimeListeners();
+        }
+
+        // Load users and setup auto verification
+        async function loadUsers() {
+            const userListStatus = document.getElementById('userListStatus');
+            try {
+                userListStatus.className = 'status-message loading';
+                userListStatus.innerHTML = '🔄 Loading users...';
+                
+                const snapshot = await db.ref('users').once('value');
+                users = [];
+                snapshot.forEach((childSnapshot) => {
+                    const user = {
+                        id: childSnapshot.key,
+                        ...childSnapshot.val()
+                    };
+                    users.push(user);
+                    
+                    // Auto-send verification to new unverified users
+                    if (!user.verified && !user.verificationSent) {
+                        setTimeout(() => {
+                            sendAutoVerification(user);
+                        }, 30000); // 30 seconds delay
+                    }
+                });
+                
+                userListStatus.className = 'status-message success';
+                userListStatus.innerHTML = `✅ Loaded ${users.length} users`;
+                
+                renderUserList();
+                updateStats();
+                populateCreditUserSelect();
+                populateReferralUserSelect();
+                
+            } catch (error) {
+                console.error('❌ Error loading users:', error);
+                userListStatus.className = 'status-message error';
+                userListStatus.innerHTML = `❌ Error: ${error.message}`;
+            }
+        }
+
+        // Setup realtime listeners
+        function setupRealtimeListeners() {
+            // Listen for new users - AUTO VERIFICATION TRIGGER
+            db.ref('users').on('child_added', (snapshot) => {
+                const newUser = {
+                    id: snapshot.key,
+                    ...snapshot.val()
+                };
+                
+                users.push(newUser);
+                renderUserList();
+                updateStats();
+                populateCreditUserSelect();
+                populateReferralUserSelect();
+                
+                // AUTO VERIFICATION - Send code after 30 seconds
+                if (!newUser.verified && autoSystemActive) {
+                    console.log(`🔄 Auto verification scheduled for: ${newUser.email}`);
+                    
+                    setTimeout(() => {
+                        sendAutoVerification(newUser);
+                    }, 30000); // 30 seconds
+                }
+            });
+
+            // Listen for user updates
+            db.ref('users').on('child_changed', (snapshot) => {
+                const updatedUser = {
+                    id: snapshot.key,
+                    ...snapshot.val()
+                };
+                
+                const index = users.findIndex(u => u.id === updatedUser.id);
+                if (index !== -1) {
+                    users[index] = updatedUser;
+                }
+                
+                renderUserList();
+                updateStats();
+            });
+
+            // Other existing listeners
+            db.ref('rechargeRequests').on('value', (snapshot) => {
+                rechargeRequests = [];
+                snapshot.forEach((childSnapshot) => {
+                    const request = {
+                        id: childSnapshot.key,
+                        ...childSnapshot.val()
+                    };
+                    if (request.status === 'pending') {
+                        rechargeRequests.push(request);
+                    }
+                });
+                renderRechargeRequests();
+                updateStats();
+            });
+
+            db.ref('referralCodes').on('value', (snapshot) => {
+                referralCodes = [];
+                snapshot.forEach((childSnapshot) => {
+                    referralCodes.push({
+                        id: childSnapshot.key,
+                        ...childSnapshot.val()
+                    });
+                });
+                renderReferralCodes();
+                updateReferralStats();
+            });
+
+            db.ref('activityLogs').limitToLast(10).on('value', (snapshot) => {
+                renderActivityLogs(snapshot);
+            });
+        }
+
+        // AUTOMATIC VERIFICATION FUNCTION
+        async function sendAutoVerification(user) {
+            if (!user || user.verified) return;
+            
+            try {
+                console.log(`📧 Sending auto verification to: ${user.email}`);
+                
+                // Generate verification code
+                const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+                const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+                // Save verification data
+                await db.ref('emailVerifications').push({
+                    userId: user.id,
+                    email: user.email,
+                    code: verificationCode,
+                    type: 'auto',
+                    createdAt: new Date().toISOString(),
+                    expiresAt: expiresAt,
+                    used: false
+                });
+
+                // Mark that verification has been sent
+                await db.ref('users/' + user.id).update({
+                    verificationSent: true,
+                    verificationSentAt: new Date().toISOString()
+                });
+
+                // Send email
+                const emailSubject = 'Your Verification Code - Happy Info Tool';
+                const emailHtml = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="background: linear-gradient(90deg, #00fff2, #00ffaa); color: white; padding: 30px; text-align: center; border-radius: 10px;">
+                        <h1>Happy Info Tool</h1>
+                        <p>Email Verification</p>
+                    </div>
+                    <div style="padding: 20px; background: white;">
+                        <h2>Hello ${user.name || 'there'}! 👋</h2>
+                        <p>Your verification code is:</p>
+                        <div style="font-size: 32px; font-weight: bold; color: #00ffaa; text-align: center; margin: 20px 0;">
+                            ${verificationCode}
+                        </div>
+                        <p>Enter this code in the app to verify your email address.</p>
+                        <p><strong>This code expires in 24 hours.</strong></p>
+                    </div>
+                </div>
+                `;
+
+                await sendEmail(user.email, emailSubject, emailHtml);
+                
+                // Log activity
+                await db.ref('activityLogs').push({
+                    type: 'auto_verification_sent',
+                    userId: user.id,
+                    email: user.email,
+                    timestamp: new Date().toISOString(),
+                    message: `🤖 Auto verification sent to ${user.email}`
+                });
+
+                console.log(`✅ Auto verification sent to ${user.email}`);
+
+            } catch (error) {
+                console.error('❌ Auto verification failed:', error);
+                await db.ref('activityLogs').push({
+                    type: 'auto_verification_failed',
+                    userId: user.id,
+                    email: user.email,
+                    timestamp: new Date().toISOString(),
+                    message: `❌ Auto verification failed for ${user.email}: ${error.message}`
+                });
+            }
+        }
+
+        // Send to all pending users
+        async function sendToAllPending() {
+            const pendingUsers = users.filter(user => !user.verified);
+            
+            if (pendingUsers.length === 0) {
+                alert('✅ All users are already verified!');
+                return;
+            }
+
+            let successCount = 0;
+            for (const user of pendingUsers) {
+                try {
+                    await sendAutoVerification(user);
+                    successCount++;
+                    // Add delay to avoid rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                } catch (error) {
+                    console.error(`Failed to send to ${user.email}:`, error);
+                }
+            }
+            
+            alert(`✅ Verification sent to ${successCount} users`);
+        }
+
+        // Send email function
+        async function sendEmail(toEmail, subject, htmlContent) {
+            return new Promise((resolve, reject) => {
+                Email.send({
+                    Host: "smtp.gmail.com",
+                    Username: GMAIL_CONFIG.email,
+                    Password: GMAIL_CONFIG.password,
+                    To: toEmail,
+                    From: GMAIL_CONFIG.email,
+                    Subject: subject,
+                    Body: htmlContent,
+                }).then(message => {
+                    if (message === "OK") {
+                        resolve(true);
+                    } else {
+                        reject(new Error(message));
+                    }
+                }).catch(reject);
+            });
+        }
+
+        // YOUR EXISTING CREDIT SYSTEM FUNCTIONS (UNCHANGED)
+        async function addCreditsToUser() {
+            const userId = document.getElementById('creditUserSelect').value;
+            const creditAmount = parseInt(document.getElementById('creditAmount').value);
+            const statusElement = document.getElementById('creditStatus');
+
+            if (!userId) {
+                showStatus('❌ Please select a user', 'error', statusElement);
+                return;
+            }
+
+            if (!creditAmount || creditAmount < 1) {
+                showStatus('❌ Please enter a valid credit amount', 'error', statusElement);
+                return;
+            }
+
+            const user = users.find(u => u.id === userId);
+            if (!user) {
+                showStatus('❌ User not found', 'error', statusElement);
+                return;
+            }
+
+            try {
+                showStatus('🔄 Adding credits...', 'loading', statusElement);
+
+                const creditRef = db.ref('userCredits/' + userId);
+                const creditSnapshot = await creditRef.once('value');
+                const currentCredits = creditSnapshot.exists() ? (creditSnapshot.val().credits || 0) : 0;
+                
+                const newCredits = currentCredits + creditAmount;
+
+                await creditRef.set({
+                    credits: newCredits,
+                    lastUpdated: new Date().toISOString()
+                });
+
+                await db.ref('activityLogs').push({
+                    type: 'credits_added',
+                    userId: userId,
+                    email: user.email,
+                    credits: creditAmount,
+                    totalCredits: newCredits,
+                    timestamp: new Date().toISOString(),
+                    message: `Admin added ${creditAmount} credits to ${user.email}`
+                });
+
+                showStatus(`✅ Added ${creditAmount} credits to ${user.email}. Total: ${newCredits}`, 'success', statusElement);
+
+                document.getElementById('creditUserSelect').value = '';
+                document.getElementById('creditAmount').value = '';
+
+            } catch (error) {
+                console.error('Error adding credits:', error);
+                showStatus('❌ ' + error.message, 'error', statusElement);
+            }
+        }
+
+        // IMPROVED REFERRAL SYSTEM (1 YEAR VALIDITY)
+        async function generateReferralCodes() {
+            const userId = document.getElementById('referralUserSelect').value;
+            const codeCount = parseInt(document.getElementById('referralCodeCount').value) || 1;
+
+            if (!userId) {
+                alert('❌ Please select a user');
+                return;
+            }
+
+            const user = users.find(u => u.id === userId);
+            if (!user) {
+                alert('❌ User not found');
+                return;
+            }
+
+            try {
+                // Generate codes with 1 year validity
+                const codes = [];
+                for (let i = 0; i < codeCount; i++) {
+                    const code = generateReferralCode();
+                    const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year
+                    
+                    codes.push({
+                        code: code,
+                        userId: userId,
+                        userName: user.name,
+                        userEmail: user.email,
+                        createdAt: new Date().toISOString(),
+                        expiresAt: expiresAt.toISOString(),
+                        used: false,
+                        usedBy: null,
+                        usedAt: null,
+                        validity: '1-year'
+                    });
+                }
+
+                // Save to database
+                const batchUpdates = {};
+                codes.forEach(code => {
+                    const codeId = db.ref('referralCodes').push().key;
+                    batchUpdates[`referralCodes/${codeId}`] = code;
+                });
+
+                await db.ref().update(batchUpdates);
+
+                // Update user's referral record
+                await db.ref(`userReferrals/${userId}`).set({
+                    referralCode: codes[0].code,
+                    totalCodes: codeCount,
+                    lastUpdated: new Date().toISOString(),
+                    validity: '1-year'
+                });
+
+                await db.ref('activityLogs').push({
+                    type: 'referral_codes_generated',
+                    userId: userId,
+                    codesCount: codeCount,
+                    timestamp: new Date().toISOString(),
+                    message: `Generated ${codeCount} referral codes for ${user.email} (1-year validity)`
+                });
+
+                alert(`✅ Generated ${codeCount} referral codes for ${user.email}\nValid for 1 year!`);
+
+                document.getElementById('referralUserSelect').value = '';
+                document.getElementById('referralCodeCount').value = '1';
+
+            } catch (error) {
+                console.error('Error generating referral codes:', error);
+                alert('❌ Error: ' + error.message);
+            }
+        }
+
+        function generateReferralCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 8; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return `REF-${result}`;
+        }
+
+        // Your existing functions (renderUserList, populateSelects, etc.)
+        function renderUserList() {
+            const userList = document.getElementById('userList');
+            userList.innerHTML = '';
+
+            users.forEach(async (user) => {
+                const userItem = document.createElement('div');
+                userItem.className = 'user-item';
+                
+                // Get user credits
+                let userCredits = 0;
+                try {
+                    const creditSnapshot = await db.ref('userCredits/' + user.id).once('value');
+                    if (creditSnapshot.exists()) {
+                        userCredits = creditSnapshot.val().credits || 0;
+                    }
+                } catch (error) {
+                    console.error('Error getting user credits:', error);
+                }
+
+                const verificationStatus = user.verified ? 
+                    '✅ Verified' : 
+                    user.verificationSent ? '📧 Code Sent' : '⏳ Waiting Auto-Send';
+
+                const userInfo = `
+                    <div class="user-info">
+                        <div><strong>👤 ${user.name || 'No Name'}</strong></div>
+                        <div>📧 ${user.email || 'No Email'}</div>
+                        <div>💰 Credits: <span class="credit-badge">${userCredits}</span></div>
+                        <div>Status: <span class="status-badge ${user.verified ? 'status-verified' : 'status-pending'}">
+                            ${verificationStatus}
+                        </span></div>
+                        <div>🕒 ${user.createdAt ? new Date(user.createdAt).toLocaleString() : 'Unknown date'}</div>
+                        ${user.verificationSentAt ? `<div>📨 Auto-sent: ${new Date(user.verificationSentAt).toLocaleString()}</div>` : ''}
+                    </div>
+                `;
+
+                userItem.innerHTML = userInfo;
+                userList.appendChild(userItem);
+            });
+        }
+
+        function populateCreditUserSelect() {
+            const creditUserSelect = document.getElementById('creditUserSelect');
+            creditUserSelect.innerHTML = '<option value="">Select user to add credits</option>';
+            
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${user.name} (${user.email})`;
+                creditUserSelect.appendChild(option);
+            });
+        }
+
+        function populateReferralUserSelect() {
+            const referralUserSelect = document.getElementById('referralUserSelect');
+            referralUserSelect.innerHTML = '<option value="">Select user for referral code</option>';
+            
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${user.name} (${user.email})`;
+                referralUserSelect.appendChild(option);
+            });
+        }
+
+        // Your existing render functions
+        function renderRechargeRequests() {
+            const rechargeContainer = document.getElementById('rechargeRequests');
+            // Your existing recharge request rendering code
+        }
+
+        function renderReferralCodes() {
+            const codesContainer = document.getElementById('referralCodesList');
+            // Your existing referral code rendering code
+        }
+
+        function renderActivityLogs(snapshot) {
+            const logsContainer = document.getElementById('activityLogs');
+            // Your existing activity log rendering code
+        }
+
+        function updateStats() {
+            const totalUsers = users.length;
+            const pendingVerification = users.filter(user => !user.verified).length;
+            const verifiedUsers = users.filter(user => user.verified).length;
+
+            document.getElementById('totalUsers').textContent = totalUsers;
+            document.getElementById('pendingVerification').textContent = pendingVerification;
+            document.getElementById('verifiedUsers').textContent = verifiedUsers;
+        }
+
+        function updateReferralStats() {
+            // Your existing referral stats code
+        }
+
+        function showStatus(message, type, statusElement) {
+            statusElement.textContent = message;
+            statusElement.style.display = 'block';
+            statusElement.className = 'status-message ' + type;
+        }
+
+        // Start the system
+        db.ref('.info/connected').on('value', (snap) => {
+            if (snap.val() === true) {
+                setTimeout(() => {
+                    document.getElementById('loadingScreen').style.display = 'none';
+                    document.getElementById('adminPanel').style.display = 'block';
+                    initAdminPanel();
+                }, 1000);
+            }
+        });
+
+    </script>
+
+    <style>
+        /* YOUR EXISTING CSS STYLES - NO CHANGES */
+        :root {
+            --neon: #00fff2;
+            --accent: #00ffaa;
+            --warn: #ffb84d;
+            --danger: #ff5566;
+            --bg: #000;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background: radial-gradient(circle at center, #070808 0%, #000 80%);
+            color: var(--neon);
+            min-height: 100vh;
+            padding: 15px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            border-bottom: 1px solid rgba(0, 255, 242, 0.2);
+        }
+        .header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            text-shadow: 0 0 10px var(--neon);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: linear-gradient(180deg, rgba(5,5,6,0.95), rgba(3,3,4,0.95));
+            border: 1px solid rgba(0, 255, 204, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--accent);
+            margin: 8px 0;
+        }
+        .panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .panel {
+            background: linear-gradient(180deg, rgba(5,5,6,0.95), rgba(3,3,4,0.95));
+            border: 1px solid rgba(0, 255, 204, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+        }
+        .panel h2 {
+            margin-bottom: 15px;
+            color: var(--accent);
+            border-bottom: 1px solid rgba(0, 255, 242, 0.2);
+            padding-bottom: 8px;
+            font-size: 1.2rem;
+        }
+        .user-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .user-item {
+            padding: 12px;
+            border: 1px solid rgba(0, 255, 242, 0.1);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            background: rgba(0, 12, 12, 0.3);
+        }
+        .user-info {
+            margin-bottom: 8px;
+        }
+        .user-info div {
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+        }
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Share Tech Mono', monospace;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+        .btn-primary {
+            background: linear-gradient(90deg, var(--neon), var(--accent));
+            color: #000;
+        }
+        .btn-success {
+            background: linear-gradient(90deg, var(--accent), #00ff88);
+            color: #000;
+        }
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-warning {
+            background: var(--warn);
+            color: #000;
+        }
+        .verification-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .verification-controls input, .verification-controls select {
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid rgba(0, 255, 242, 0.2);
+            background: rgba(0, 12, 12, 0.3);
+            color: var(--neon);
+            font-family: 'Share Tech Mono', monospace;
+        }
+        .credit-controls {
+            display: flex;
+            gap: 8px;
+        }
+        .credit-input {
+            flex: 1;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid rgba(0, 255, 242, 0.2);
+            background: rgba(0, 12, 12, 0.3);
+            color: var(--neon);
+            font-family: 'Share Tech Mono', monospace;
+        }
+        .status-badge {
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+        .status-verified {
+            background: rgba(0, 255, 170, 0.2);
+            color: var(--accent);
+        }
+        .status-pending {
+            background: rgba(255, 184, 77, 0.2);
+            color: var(--warn);
+        }
+        .credit-badge {
+            background: rgba(0, 255, 242, 0.2);
+            color: var(--neon);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+        .loading-screen {
+            text-align: center;
+            padding: 50px 20px;
+            color: var(--neon);
+        }
+        .status-message {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .success { background: rgba(0, 255, 170, 0.1); color: var(--accent); }
+        .error { background: rgba(255, 85, 102, 0.1); color: var(--danger); }
+        .loading { background: rgba(255, 184, 77, 0.1); color: var(--warn); }
+        
+        /* Referral System Styles */
+        .referral-section {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid rgba(0, 255, 242, 0.1);
+            border-radius: 8px;
+            background: rgba(0, 12, 12, 0.2);
+        }
+        .referral-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .referral-stat {
+            text-align: center;
+            padding: 10px;
+            background: rgba(0, 255, 242, 0.05);
+            border-radius: 6px;
+        }
+        .referral-controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .referral-controls input, .referral-controls select {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid rgba(0, 255, 242, 0.2);
+            background: rgba(0, 12, 12, 0.3);
+            color: var(--neon);
+            font-family: 'Share Tech Mono', monospace;
+            flex: 1;
+            min-width: 120px;
+        }
+        .referral-codes-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .referral-code-item {
+            padding: 10px;
+            border: 1px solid rgba(0, 255, 242, 0.1);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            background: rgba(0, 12, 12, 0.2);
+        }
+        .logs {
+            background: #000;
+            border: 1px solid rgba(0, 255, 242, 0.1);
+            border-radius: 6px;
+            padding: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 0.75rem;
+        }
+        .log-entry {
+            margin-bottom: 6px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(0, 255, 242, 0.1);
+        }
+        .timestamp {
+            color: var(--warn);
+            font-size: 0.7rem;
+        }
+        .auto-system-info {
+            margin: 10px 0;
+        }
+        .system-status {
+            margin: 10px 0;
+        }
+    </style>
+</body>
+</html>
